@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Gestor de pilas</title>
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+        rel="stylesheet">
+</head>
+
+<body class="bg-light">
+
+<main class="container py-4">
+
+    <header class="mb-4">
+        <h1 class="h3 fw-bold">Gestor de pilas</h1>
+        <p class="text-secondary">
+            Agrega elementos y fotografías a tu pila.
+        </p>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show"
+                 role="alert">
+                {{ message }}
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="alert"
+                        aria-label="Cerrar"></button>
+            </div>
+        {% endfor %}
+    {% endwith %}
+
+    <div class="row g-4">
+
+        <!-- COLUMNA IZQUIERDA -->
+        <div class="col-12 col-lg-5">
+
+            <section class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h2 class="h5">Capacidad</h2>
+
+                    <form action="{{ url_for('configure') }}"
+                          method="post">
+
+                        <label for="capacity" class="form-label">
+                            Máximo de elementos
+                        </label>
+
+                        <div class="input-group">
+                            <input type="number"
+                                   class="form-control"
+                                   id="capacity"
+                                   name="capacity"
+                                   min="1"
+                                   max="20"
+                                   required
+                                   value="{{ stack.capacity if stack else default_capacity }}">
+
+                            <button class="btn btn-outline-secondary"
+                                    type="submit">
+                                Aplicar
+                            </button>
+                        </div>
+
+                        <div class="form-text">
+                            Entre 1 y 20 elementos. Aplicar una nueva
+                            capacidad vacía la pila actual.
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            {% if stack %}
+
+            <section class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h2 class="h5">Apilar texto</h2>
+
+                    <form action="{{ url_for('push_text') }}"
+                          method="post">
+
+                        <label for="value" class="form-label">
+                            Valor
+                        </label>
+
+                        <input type="text"
+                               class="form-control mb-3"
+                               id="value"
+                               name="value"
+                               maxlength="200"
+                               placeholder="Escribe un valor"
+                               required
+                               {% if stack.is_full() %}disabled{% endif %}>
+
+                        <button type="submit"
+                                class="btn btn-primary w-100"
+                                {% if stack.is_full() %}disabled{% endif %}>
+                            Apilar elemento
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <section class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h2 class="h5">Cámara</h2>
+
+                    <div class="d-grid gap-2 mb-3">
+                        <button type="button"
+                                id="startCamera"
+                                class="btn btn-primary"
+                                {% if stack.is_full() %}disabled{% endif %}>
+                            Abrir cámara
+                        </button>
+
+                        <button type="button"
+                                id="capturePhoto"
+                                class="btn btn-success"
+                                disabled>
+                            Tomar foto y apilar
+                        </button>
+
+                        <button type="button"
+                                id="stopCamera"
+                                class="btn btn-outline-secondary"
+                                disabled>
+                            Cerrar cámara
+                        </button>
+                    </div>
+
+                    <div class="ratio ratio-4x3 bg-dark rounded overflow-hidden mb-2">
+                        <video id="camera"
+                               class="w-100 h-100"
+                               autoplay
+                               playsinline
+                               muted></video>
+                    </div>
+
+                    <p id="cameraMessage"
+                       class="form-text"
+                       role="status"
+                       aria-live="polite">
+                        Abre la cámara o selecciona una imagen.
+                    </p>
+
+                    <img id="preview"
+                         class="img-fluid rounded d-none mb-3"
+                         alt="Vista previa">
+
+                    <form action="{{ url_for('push_photo') }}"
+                          method="post"
+                          enctype="multipart/form-data"
+                          id="photoForm">
+
+                        <label for="imageFile" class="form-label">
+                            Seleccionar fotografía
+                        </label>
+
+                        <input type="file"
+                               class="form-control mb-3"
+                               id="imageFile"
+                               name="image"
+                               accept="image/jpeg,image/png,image/webp"
+                               required
+                               {% if stack.is_full() %}disabled{% endif %}>
+
+                        <button type="submit"
+                                class="btn btn-outline-primary w-100"
+                                {% if stack.is_full() %}disabled{% endif %}>
+                            Guardar fotografía seleccionada
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <section class="card shadow-sm">
+                <div class="card-body">
+                    <h2 class="h5">Operaciones</h2>
+
+                    <div class="d-grid gap-2">
+
+                        <form action="{{ url_for('pop') }}"
+                              method="post">
+                            <button type="submit"
+                                    class="btn btn-outline-secondary w-100"
+                                    {% if stack.is_empty() %}disabled{% endif %}>
+                                Desapilar
+                            </button>
+                        </form>
+
+                        <button type="button"
+                                id="peekButton"
+                                class="btn btn-outline-secondary"
+                                {% if stack.is_empty() %}disabled{% endif %}>
+                            Consultar tope
+                        </button>
+
+                        <form action="{{ url_for('clear') }}"
+                              method="post"
+                              id="clearForm">
+                            <button type="submit"
+                                    class="btn btn-outline-danger w-100"
+                                    {% if stack.is_empty() %}disabled{% endif %}>
+                                Vaciar pila
+                            </button>
+                        </form>
+
+                    </div>
+
+                    <div id="peekMessage"
+                         class="alert alert-info mt-3 d-none"
+                         role="status"
+                         aria-live="polite"></div>
+                </div>
+            </section>
+
+            {% else %}
+
+            <div class="alert alert-info">
+                Configura la capacidad para comenzar a usar la pila.
+            </div>
+
+            {% endif %}
+
+        </div>
+
+        <!-- COLUMNA DERECHA -->
+        <div class="col-12 col-lg-7">
+
+            <section class="card shadow-sm">
+                <div class="card-body">
+
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2 class="h4 mb-0">Mi pila</h2>
+
+                        {% if stack %}
+                            <span class="badge text-bg-primary">
+                                Pila activa
+                            </span>
+                        {% else %}
+                            <span class="badge text-bg-secondary">
+                                Sin configurar
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    {% if stack %}
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                <div class="text-secondary small">
+                                    Elementos
+                                </div>
+                                <div class="h3">
+                                    {{ stack|length }}
+                                </div>
+                            </div>
+
+                            <div class="col-6">
+                                <div class="text-secondary small">
+                                    Capacidad
+                                </div>
+                                <div class="h3">
+                                    {{ stack.capacity }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-secondary small">
+                                Ocupación
+                            </span>
+                            <span class="small">
+                                {{ ((stack|length / stack.capacity) * 100)|round|int }}%
+                            </span>
+                        </div>
+
+                        <div class="progress mb-4"
+                             role="progressbar"
+                             aria-label="Ocupación de la pila"
+                             aria-valuenow="{{ ((stack|length / stack.capacity) * 100)|round|int }}"
+                             aria-valuemin="0"
+                             aria-valuemax="100">
+                            <div class="progress-bar"
+                                 style="width: {{ (stack|length / stack.capacity) * 100 }}%">
+                            </div>
+                        </div>
+
+                        {% set top = stack.peek() %}
+
+                        {% if top %}
+                            <div class="alert alert-info">
+                                <strong>Tope:</strong>
+
+                                {% if top.type == "text" %}
+                                    {{ top.value }}
+                                {% else %}
+                                    Fotografía
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                        <h3 class="h6 mb-3">
+                            Elementos (tope a base)
+                        </h3>
+
+                        {% if items %}
+
+                            <div class="d-grid gap-2">
+
+                                {% for item in items %}
+
+                                    <div class="card
+                                        {% if loop.first %}border-primary bg-primary-subtle{% endif %}">
+
+                                        <div class="card-body p-2">
+                                            <div class="d-flex align-items-center gap-3">
+
+                                                {% if item.type == "photo" %}
+
+                                                    <img
+                                                        src="{{ url_for('photo', filename=item.filename) }}"
+                                                        class="rounded border"
+                                                        width="75"
+                                                        height="65"
+                                                        style="object-fit: cover;"
+                                                        alt="Fotografía apilada">
+
+                                                {% else %}
+
+                                                    <div class="rounded border bg-white d-flex align-items-center justify-content-center text-primary"
+                                                         style="width: 75px; height: 65px;">
+                                                        <span class="fs-2">T</span>
+                                                    </div>
+
+                                                {% endif %}
+
+                                                <div class="flex-grow-1 text-break">
+                                                    {% if item.type == "text" %}
+                                                        <div class="fw-semibold">
+                                                            {{ item.value }}
+                                                        </div>
+                                                        <div class="text-secondary small">
+                                                            Elemento de texto
+                                                        </div>
+                                                    {% else %}
+                                                        <div class="fw-semibold">
+                                                            Fotografía
+                                                        </div>
+                                                        <div class="text-secondary small">
+                                                            Imagen almacenada
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+
+                                                <div>
+                                                    {% if loop.first %}
+                                                        <span class="badge text-bg-primary">
+                                                            TOPE
+                                                        </span>
+                                                    {% else %}
+                                                        <span class="badge text-bg-secondary">
+                                                            Posición {{ loop.index }}
+                                                        </span>
+                                                    {% endif %}
+                                                </div>
+
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                {% endfor %}
+
+                            </div>
+
+                        {% else %}
+
+                            <div class="alert alert-light border mb-0">
+                                La pila está vacía. Agrega texto o una fotografía.
+                            </div>
+
+                        {% endif %}
+
+                    {% else %}
+
+                        <div class="alert alert-light border">
+                            Configura la capacidad para visualizar tu pila.
+                        </div>
+
+                    {% endif %}
+
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <footer class="text-center text-secondary small py-4">
+        Gestor de pilas LIFO · Python, Flask y Bootstrap
+    </footer>
+
+</main>
+
+<script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js">
+</script>
+
+<script src="{{ url_for('static', filename='js/camara.js') }}"></script>
+
+</body>
+</html>
